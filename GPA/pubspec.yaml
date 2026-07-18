@@ -15,7 +15,7 @@ dependencies:
   connectivity_plus: ^3.0.3
   shared_preferences: ^2.1.1
   pdf: ^3.8.1
-  unity_ads_plugin: ^2.0.0
+  unity_ads_plugin: ^0.3.30
 
 dev_dependencies:
   flutter_test:
