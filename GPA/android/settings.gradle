@@ -1,1 +1,2 @@
-404: Not Found
+rootProject.name = 'gpa_and_cgpa_calculator'
+include ':app'

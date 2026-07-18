@@ -1,13 +1,43 @@
 workflows:
   android-workflow:
-    name: Build Android
+    name: Build Android (signed)
     environment:
       flutter: stable
     scripts:
+      - name: Install dependencies
+        working_directory: GPA
+        script: |
+          flutter pub get
+
+      - name: Prepare keystore from CI secret
+        working_directory: GPA
+        script: |
+          # This step expects an environment variable KEYSTORE_BASE64 to be set in Codemagic (base64 of your .jks file)
+          # And the following variables: KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD
+          set -e
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "Decoding keystore to ./android/keystore.jks"
+            echo "$KEYSTORE_BASE64" | base64 --decode > ./android/keystore.jks
+            cat > ./android/key.properties <<EOL
+storeFile=keystore.jks
+storePassword=$KEYSTORE_PASSWORD
+keyAlias=$KEY_ALIAS
+keyPassword=$KEY_PASSWORD
+EOL
+          else
+            echo "ERROR: KEYSTORE_BASE64 not set. CI cannot sign the APK."
+            exit 1
+          fi
+
       - name: Build APK
         working_directory: GPA
         script: |
           flutter build apk --release
+
     artifacts:
       - GPA/build/app/outputs/apk/release/*.apk
 
+    # Notes:
+    # - In Codemagic, store your keystore file as a secret (Base64) in the variable KEYSTORE_BASE64,
+    #   and set KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD as secure environment variables.
+    # - Also set any required runtime variables for Supabase or AdMob as secure env vars if needed.

@@ -1,0 +1,6 @@
+# Template for Android signing. Do NOT commit real secrets.
+# Fill these fields locally or let CI create a key.properties at build time.
+storeFile=/path/to/keystore.jks
+storePassword=ENTER_STORE_PASSWORD
+keyAlias=ENTER_KEY_ALIAS
+keyPassword=ENTER_KEY_PASSWORD
