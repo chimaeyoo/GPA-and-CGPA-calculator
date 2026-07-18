@@ -1,6 +1,6 @@
 workflows:
   android-workflow:
-    name: Build Android (signed)
+    name: Build Android (signed if keystore provided, otherwise unsigned)
     environment:
       flutter: stable
     scripts:
@@ -9,14 +9,12 @@ workflows:
         script: |
           flutter pub get
 
-      - name: Prepare keystore from CI secret
+      - name: Prepare keystore if provided (optional)
         working_directory: GPA
         script: |
-          # This step expects an environment variable KEYSTORE_BASE64 to be set in Codemagic (base64 of your .jks file)
-          # And the following variables: KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD
           set -e
           if [ -n "$KEYSTORE_BASE64" ]; then
-            echo "Decoding keystore to ./android/keystore.jks"
+            echo "KEYSTORE_BASE64 present — producing signed APK"
             echo "$KEYSTORE_BASE64" | base64 --decode > ./android/keystore.jks
             cat > ./android/key.properties <<EOL
 storeFile=keystore.jks
@@ -24,20 +22,30 @@ storePassword=$KEYSTORE_PASSWORD
 keyAlias=$KEY_ALIAS
 keyPassword=$KEY_PASSWORD
 EOL
+            SIGNED_BUILD=true
           else
-            echo "ERROR: KEYSTORE_BASE64 not set. CI cannot sign the APK."
-            exit 1
+            echo "No KEYSTORE_BASE64 provided — building unsigned APK for testing"
+            SIGNED_BUILD=false
           fi
 
       - name: Build APK
         working_directory: GPA
         script: |
-          flutter build apk --release
+          set -e
+          if [ "$SIGNED_BUILD" = true ]; then
+            echo "Building signed release APK..."
+            flutter build apk --release
+          else
+            echo "Building unsigned release APK..."
+            # Build release APK (if no signing config present, this will produce an unsigned APK)
+            flutter build apk --release
+            # Note: if you need an explicitly unsigned artifact, the Android Gradle plugin
+            # produces an unsigned APK at build/app/outputs/apk/release/app-release-unsigned.apk
+          fi
 
     artifacts:
       - GPA/build/app/outputs/apk/release/*.apk
 
     # Notes:
-    # - In Codemagic, store your keystore file as a secret (Base64) in the variable KEYSTORE_BASE64,
-    #   and set KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD as secure environment variables.
-    # - Also set any required runtime variables for Supabase or AdMob as secure env vars if needed.
+    # - If you provide KEYSTORE_BASE64 and related variables, the build will be signed.
+    # - If you don't provide them, the workflow will still produce an unsigned release APK for testing.

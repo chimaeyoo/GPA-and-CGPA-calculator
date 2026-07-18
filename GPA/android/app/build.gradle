@@ -1,5 +1,7 @@
 apply plugin: 'com.android.application'
 
+import java.util.Properties
+
 android {
     compileSdkVersion 33
 
@@ -12,25 +14,32 @@ android {
         multiDexEnabled true
     }
 
+    // Signing configuration is loaded conditionally from android/key.properties if it exists.
     signingConfigs {
         release {
-            // Loaded from key.properties created at build time in CI
-            def keystorePropertiesFile = rootProject.file('key.properties')
-            if (keystorePropertiesFile.exists()) {
-                Properties keystoreProperties = new Properties()
-                keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
-
-                storeFile file(keystoreProperties['storeFile'])
-                storePassword keystoreProperties['storePassword']
-                keyAlias keystoreProperties['keyAlias']
-                keyPassword keystoreProperties['keyPassword']
-            }
+            // Intentionally left empty; will be populated below if key.properties exists
         }
+    }
+
+    // Try to read key.properties and populate signingConfigs.release
+    def hasSigningConfig = false
+    def keystorePropertiesFile = rootProject.file('key.properties')
+    if (keystorePropertiesFile.exists()) {
+        Properties keystoreProperties = new Properties()
+        keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+
+        signingConfigs.release.storeFile = file(keystoreProperties['storeFile'])
+        signingConfigs.release.storePassword = keystoreProperties['storePassword']
+        signingConfigs.release.keyAlias = keystoreProperties['keyAlias']
+        signingConfigs.release.keyPassword = keystoreProperties['keyPassword']
+        hasSigningConfig = true
     }
 
     buildTypes {
         release {
-            signingConfig signingConfigs.release
+            if (hasSigningConfig) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
