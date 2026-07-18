@@ -16,12 +16,8 @@ workflows:
           if [ -n "$KEYSTORE_BASE64" ]; then
             echo "KEYSTORE_BASE64 present — producing signed APK"
             echo "$KEYSTORE_BASE64" | base64 --decode > ./android/keystore.jks
-            cat > ./android/key.properties <<EOL
-storeFile=keystore.jks
-storePassword=$KEYSTORE_PASSWORD
-keyAlias=$KEY_ALIAS
-keyPassword=$KEY_PASSWORD
-EOL
+            # Use printf to write a properties file safely (avoids heredoc parsing issues in UI)
+            printf "storeFile=keystore.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n" "$KEYSTORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" > ./android/key.properties
             SIGNED_BUILD=true
           else
             echo "No KEYSTORE_BASE64 provided — building unsigned APK for testing"
@@ -37,15 +33,16 @@ EOL
             flutter build apk --release
           else
             echo "Building unsigned release APK..."
-            # Build release APK (if no signing config present, this will produce an unsigned APK)
             flutter build apk --release
-            # Note: if you need an explicitly unsigned artifact, the Android Gradle plugin
-            # produces an unsigned APK at build/app/outputs/apk/release/app-release-unsigned.apk
+            # The unsigned APK will be available at build/app/outputs/apk/release/
           fi
 
     artifacts:
       - GPA/build/app/outputs/apk/release/*.apk
 
     # Notes:
-    # - If you provide KEYSTORE_BASE64 and related variables, the build will be signed.
-    # - If you don't provide them, the workflow will still produce an unsigned release APK for testing.
+    # - This workflow avoids heredoc blocks when generating key.properties to prevent any YAML
+    #   parsing issues if the workflow is viewed/edited in the Codemagic UI.
+    # - If you provide the following env vars (secure) in Codemagic, the build will be signed:
+    #     KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD
+    # - If not provided, Codemagic will still produce an unsigned release APK for testing.
